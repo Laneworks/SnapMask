@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="ko" data-look="kool" data-name="b" data-prev="slide" data-tag="ghost">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SNAP MASK — 스샷 가리개</title>
+<meta name="description" content="EZ2ON 결과창·리더보드·플레이 화면 스크린샷의 프로필 사진·닉네임·UID 를 브라우저 안에서 가려 저장">
+<style>
+/* 레이아웃: 머리(이름·약속 한 줄) / 본문 = 왼쪽 미리보기(전·후 밀기 — 왼쪽 가린 뒤 · 오른쪽 원본) + 오른쪽 순서 01~04 패널 · 애니메이션 없음 · 바깥 요청 0 */
+:root{
+  --gut:16px;
+  /* 겉모습 ① EZ2 KOOL — 다크 측정실 (LS 남색 · 눈금 · 밝기로 위계) */
+  --bg:#060a13; --bg2:#0b1222; --panel:#0e1729; --line:#1d2a44; --line2:#2a3c5f;
+  --ink:#e8eef8; --dim:#8696b3; --faint:#4d5d7d;
+  --acc:#59d6f0; --acc-ink:#03131a; --acc2:#ff5470; --warn:#ffd166;
+  --on:#59d6f0; --off:#3a4a68;
+  --f-ui:"Pretendard","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR","Noto Sans CJK KR",system-ui,sans-serif; --f-mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace; --f-disp:var(--f-ui);
+  --r:10px; --btn-r:999px; --bw:1px;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.55 var(--f-ui);min-height:100vh;overflow-x:hidden;word-break:keep-all;overflow-wrap:break-word}
+
+
+.wrap{max-width:1240px;margin:0 auto;padding:22px var(--gut) 40px}
+
+/* 머리 */
+.head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 24px;align-items:end;margin-bottom:18px}
+.mark{margin:0;font:900 30px/1.05 var(--f-disp);letter-spacing:-.01em}
+.mark .k{color:var(--acc2)}
+.mark small{display:inline-block;font:600 11px var(--f-mono);letter-spacing:.18em;color:var(--dim);margin-left:10px;vertical-align:middle}
+.promise{margin:6px 0 0;color:var(--dim);font-size:13px;max-width:62ch}
+.promise b{color:var(--ink);font-weight:700}
+.ver{font:600 11px var(--f-mono);color:var(--faint);letter-spacing:.12em;text-align:right}
+
+/* 본문 */
+.main{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start}
+@media (max-width:900px){.main{grid-template-columns:1fr}}
+
+/* 미리보기 */
+.stagebox{min-width:0}
+.stage{position:relative;background:#000;border:var(--bw) solid var(--line2);border-radius:var(--r);overflow:hidden;user-select:none}
+.stage canvas{display:block;width:100%;height:auto;touch-action:none;cursor:pointer}
+.stage.drawing canvas{cursor:crosshair}
+.stage.drawing{outline:2px solid var(--warn);outline-offset:3px}
+button.b.tool.on{background:var(--warn);border-color:var(--warn);color:#1a1300}
+.toolhint{color:var(--warn);font-size:12px;margin-left:8px}
+.lab{position:absolute;top:10px;font:700 11px var(--f-mono);letter-spacing:.14em;padding:3px 8px;border-radius:4px;background:rgba(0,0,0,.62);color:#fff;pointer-events:none;text-transform:uppercase}
+.lab{top:50%!important;margin-top:-11px}.lab.l{transform:translateX(calc(-100% - 32px))}.lab.r{transform:translateX(32px)}
+.split{position:absolute;top:0;bottom:0;width:0;pointer-events:none}
+.split::before{content:"";position:absolute;top:0;bottom:0;left:-1px;width:2px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+.knob{position:absolute;top:50%;left:0;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:#fff;color:#111;display:grid;place-items:center;font:700 14px var(--f-mono);box-shadow:0 2px 10px rgba(0,0,0,.45);pointer-events:auto;cursor:ew-resize;touch-action:none}
+.knob:focus-visible{outline:3px solid var(--acc2);outline-offset:3px}
+.stagecap{display:flex;flex-wrap:wrap;gap:4px 14px;justify-content:space-between;margin-top:8px;color:var(--dim);font-size:12px}
+.stagecap kbd{font:600 11px var(--f-mono);border:1px solid var(--line2);border-radius:4px;padding:0 5px;color:var(--ink)}
+.sample{position:absolute;right:10px;bottom:10px;font:700 11px var(--f-mono);letter-spacing:.1em;padding:3px 8px;border-radius:4px;background:var(--acc2);color:#fff;pointer-events:none}
+.drop{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.72);color:#fff;font:700 18px var(--f-ui);border:3px solid var(--acc2)}
+
+/* 패널 */
+.panel{background:var(--panel);border:var(--bw) solid var(--line);border-radius:var(--r);padding:4px 16px 16px;min-width:0}
+.step{padding:14px 0 12px;border-bottom:1px solid var(--line)}
+.step:last-of-type{border-bottom:0;padding-bottom:0}
+.sh{display:flex;align-items:baseline;gap:10px;margin:0 0 10px;font:700 13px var(--f-ui)}
+.sh .n{font:700 11px var(--f-mono);color:var(--dim);letter-spacing:.12em}
+.sh .aux{margin-left:auto;font:500 11.5px var(--f-ui);color:var(--dim)}
+.btns{display:flex;flex-wrap:wrap;gap:6px}
+button.b,label.b{font:600 13px var(--f-ui);color:var(--ink);background:transparent;border:var(--bw) solid var(--line2);border-radius:var(--btn-r);padding:7px 13px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;line-height:1.2}
+button.b:hover,label.b:hover{border-color:var(--acc)}
+button.b:focus-visible,label.b:has(input:focus-visible){outline:2px solid var(--acc);outline-offset:2px}
+label.b.mouse{outline:none!important}
+button.b.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+button.go{background:var(--acc2);border-color:var(--acc2);color:#fff;font-weight:700}
+button.b.ghost{border-color:transparent;color:var(--dim);padding-inline:8px}
+label.b input{position:absolute;opacity:0;width:1px;height:1px}
+.big{width:100%;justify-content:center;padding:12px 14px;font-size:14px}
+.hint{margin:8px 0 0;color:var(--dim);font-size:12px}
+.hint b{color:var(--ink)}
+
+/* 칸 칩 */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font:600 12.5px var(--f-ui);border:var(--bw) solid var(--line2);background:transparent;color:var(--dim);border-radius:var(--btn-r);padding:6px 11px 6px 9px;cursor:pointer;display:inline-flex;gap:7px;align-items:center}
+.chip i{width:10px;height:10px;border-radius:50%;border:2px solid var(--off);flex:none}
+.chip.on{color:var(--ink);border-color:var(--on)}
+.chip.on i{background:var(--on);border-color:var(--on)}
+.chip.cust{border-color:var(--warn);color:var(--ink)}
+.chip.cust i{background:var(--warn);border-color:var(--warn)}
+
+/* 화면 맞춤 — 그림 붙은 단추 */
+.ico{width:22px;height:14px;flex:none;display:block}
+.fitrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.nud{display:inline-flex;gap:4px;margin-left:4px}
+.nud button{padding:6px 9px}
+.fitinfo{margin:8px 0 0;font:500 11.5px var(--f-mono);color:var(--dim)}
+.fitok{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px}
+.fitok .st{font:600 12px var(--f-mono);color:var(--dim)}
+.linkish{background:none;border:0;color:var(--acc2);font:600 12.5px var(--f-ui);text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:0}
+html[data-look="kool"] .linkish{color:var(--acc)}
+.fold{margin-top:10px;padding:10px 12px;border:1px solid var(--line);border-radius:calc(var(--r) * .8);background:var(--bg2)}
+
+.save{display:grid;grid-template-columns:1fr auto;gap:8px}
+.toast{min-height:1.4em;margin-top:8px;font-size:12.5px;color:var(--acc2)}
+html[data-look="kool"] .toast{color:var(--acc)}
+
+/* 아래 띠 */
+.foot{margin-top:28px;display:flex;flex-wrap:wrap;gap:6px 22px;color:var(--faint);font:500 11.5px var(--f-mono);letter-spacing:.04em}
+
+/* ── 겉모습 ① KOOL 만의 것: 눈금 테 · K 두 색 · 밝기로 위계 ── */
+html[data-look="kool"] body{background:radial-gradient(1200px 520px at 75% -10%,#12204099,transparent 70%),var(--bg)}
+html[data-look="kool"] .mark{font:800 26px/1.1 var(--f-ui);letter-spacing:.01em}
+html[data-look="kool"] .mark .kk{background:linear-gradient(90deg,#ff5470 0 50%,#4f8dff 50% 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+html[data-look="kool"] .stage{box-shadow:0 0 0 1px #0b1222,0 18px 60px -30px #59d6f066}
+html[data-look="kool"] .ticks{height:10px;margin-top:6px;background:repeating-linear-gradient(90deg,var(--line2) 0 1px,transparent 1px 2.5%),repeating-linear-gradient(90deg,var(--dim) 0 1px,transparent 1px 10%);background-size:100% 5px,100% 10px;background-repeat:no-repeat;background-position:0 0,0 0;opacity:.7}
+html[data-look="kool"] .sh .n{color:var(--acc)}
+html[data-look="kool"] .chip{color:var(--faint)}
+html[data-look="kool"] .chip.on{color:var(--ink)}
+html[data-look="kool"] .panel{background:linear-gradient(180deg,#0f1a2f,#0c1426)}
+.ticks{display:none}
+html[data-look="kool"] .ticks{display:block}
+
+
+/* 02 화면 종류 = 붙은 탭(하나만 고름) · 가릴 칸 = 칩(여럿) — 꼴로 구분 */
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--bg2);border:1px solid var(--line2);border-radius:10px;padding:3px;gap:3px}
+.seg button{font:600 13px var(--f-ui);color:var(--dim);background:transparent;border:0;border-radius:7px;padding:8px 6px;cursor:pointer}
+.seg button:hover{color:var(--ink)}
+.seg button.on{background:var(--acc);color:var(--acc-ink)}
+.seg button:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.seg.sm{width:max-content}.seg.sm button{padding:6px 14px;font-size:12.5px}
+.sub{margin:14px 0 7px;font:600 11px var(--f-mono);letter-spacing:.12em;color:var(--dim)}
+.sub span{font:500 11px var(--f-ui);letter-spacing:0;color:var(--faint);margin-left:6px}
+/* 03 화면 맞춤 — 자동 한 줄 / 모양 셋 한 줄(그림 위 · 글자 아래) / ▲▼ */
+.fitrow{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.fitrow .auto{grid-column:1/-1;justify-content:center}
+.fitrow .shape{flex-direction:column;gap:6px;padding:10px 4px 8px;border-radius:10px;justify-content:center;font-size:12px}
+.fitrow .shape .ico{width:34px;height:22px}
+.fitrow .nud{grid-column:1/-1;display:flex;gap:6px;margin:0;justify-content:flex-start;align-items:center;color:var(--dim);font-size:12px}
+.fitrow .nud button{padding:5px 12px;border-radius:8px}
+
+/* 도움 미리보기 — 단추에 마우스를 올리거나 키보드로 옮기면 작은 그림 + 한 줄 (DM Note 설정 창 꼴 · 움직임 없음) */
+.panel{position:relative}
+.tip{position:absolute;right:calc(100% + 14px);width:240px;background:var(--bg2);border:1px solid var(--line2);border-radius:10px;padding:10px;z-index:20;box-shadow:0 12px 30px -12px #000}
+.tip p{margin:8px 2px 0;font-size:12.5px;color:var(--ink);line-height:1.5}
+.tipfig svg{display:block;width:100%;height:auto;border-radius:6px;background:#04070e}
+@media (max-width:900px){.tip{display:none!important}}
+
+/* 미리보기 아래 — 설명(제목 밑에서 옮겨 옴) + 쓰는 법 세 걸음 */
+.below{margin-top:26px;display:grid;gap:18px}
+.lead{margin:0;font-size:15px;line-height:1.7;color:var(--dim);max-width:72ch}
+.lead b{color:var(--ink)}
+.howto,.pledge,.kinds{display:none}
+html[data-below="B"] .howto,html:not([data-below]) .howto{display:grid}
+html[data-below="C"] .pledge{display:grid} html[data-below="D"] .kinds{display:grid}
+.howto{grid-template-columns:repeat(3,1fr);gap:12px;list-style:none;margin:0;padding:0}
+.howto li{border-top:2px solid var(--line2);padding-top:12px;display:grid;grid-template-columns:auto 1fr;column-gap:10px}
+.howto span{grid-row:1/3;font:700 30px/1 var(--f-mono);color:var(--acc)}
+.howto b{font-size:15px}.howto em{font-style:normal;color:var(--faint);font-size:12px}
+.pledge{grid-template-columns:repeat(3,1fr);gap:12px}
+.pledge div{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.pledge b{display:block;font-size:20px;letter-spacing:-.01em}.pledge em{font-style:normal;color:var(--faint);font-size:12px}
+.kinds{grid-template-columns:repeat(3,1fr);gap:12px}
+.kinds button{background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px;color:var(--ink);font:600 13px var(--f-ui);cursor:pointer;display:grid;gap:8px;justify-items:start}
+.kinds button.on{border-color:var(--acc)}
+.kinds canvas{display:block;width:100%;height:auto;border-radius:6px}
+.kinds .kr{background:linear-gradient(90deg,#2aa8d8 0 5%,#141b2b 5% 46%,#0e1424 46% 48%,#141b2b 48%)}
+.kinds .kb{background:linear-gradient(90deg,#2a4f7a 0 36%,#0c0d10 36%),repeating-linear-gradient(#22252c 0 8%,#0c0d10 8% 10%)}
+.kinds .kp{background:linear-gradient(90deg,#000 0 40%,#10131b 40% 62%,#000 62%)}
+/* 예시 표기 — 꼴 넷 */
+.sample{background:transparent;border:1px solid var(--acc);color:var(--acc);font:600 11px var(--f-mono);letter-spacing:.14em;border-radius:3px;padding:3px 9px;backdrop-filter:blur(2px);background:#060a13b3}
+html[data-tag="pink"] .sample{background:var(--acc2);color:#fff;border-color:var(--acc2)}
+html[data-tag="tape"] .sample{right:-6px;bottom:18px;transform:rotate(-4deg);background:repeating-linear-gradient(-45deg,#ffd166 0 10px,#f4bf3a 10px 20px);color:#1a1300;border:0;font-weight:800;padding:5px 16px;border-radius:0}
+html[data-tag="ghost"] .sample{background:#000a;border:0;color:#c9d3e6;font:500 11px var(--f-ui);letter-spacing:.02em}
+@font-face{font-family:"SM-pen";src:url(data:font/woff;base64,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) format("woff");font-display:block}
+.mark svg.logo{display:block;height:62px;width:auto;overflow:visible}
+.foot{font:400 19px/1.3 "SM-pen",var(--f-ui);letter-spacing:.01em;color:var(--dim)}
+.foot a{color:inherit;text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px;text-decoration-color:color-mix(in srgb,currentColor 40%,transparent)}.foot a:hover{color:var(--ink)}.foot a:focus-visible{outline:2px solid var(--acc2);outline-offset:3px;border-radius:3px}
+</style>
+<script>
+/* 가짜 그림 두 가지(dot = 프로필 사진 · scene = 곡 재킷) — 모두 코드로 그림(바깥 그림 없음). x=캔버스, X,Y=왼쪽 위(px), W=한 변(px), hue=색 씨앗 */
+function AV(x, X, Y, W, hue, style) {
+  let sd = (hue * 9301 + Math.round(X) * 49297 + Math.round(Y) * 233) % 233280;
+  const rn = () => (sd = (sd * 9301 + 49297) % 233280) / 233280;
+  const H = (h, s, l, a) => `hsla(${((h % 360) + 360) % 360},${s}%,${l}%,${a == null ? 1 : a})`;
+  const C = (cx, cy, r, col) => { x.fillStyle = col; x.beginPath(); x.arc(X + cx * W, Y + cy * W, r * W, 0, 7); x.fill(); };
+  const E = (cx, cy, rx, ry, col, rot) => { x.fillStyle = col; x.beginPath(); x.ellipse(X + cx * W, Y + cy * W, rx * W, ry * W, rot || 0, 0, 7); x.fill(); };
+  const RG = (cx, cy, r, stops) => { const g = x.createRadialGradient(X + cx * W, Y + cy * W, 0, X + cx * W, Y + cy * W, r * W); stops.forEach(([o, c]) => g.addColorStop(o, c)); return g; };
+  const LG = (x0, y0, x1, y1, stops) => { const g = x.createLinearGradient(X + x0 * W, Y + y0 * W, X + x1 * W, Y + y1 * W); stops.forEach(([o, c]) => g.addColorStop(o, c)); return g; };
+  const fillAll = f => { x.fillStyle = f; x.fillRect(X, Y, W, W); };
+  /* 반짝이는 눈: 검은 알 + 큰 빛 + 작은 빛 */
+  const eye = (cx, cy, r, iris) => {
+    E(cx, cy, r * .82, r, "#1d1b26");
+    x.save(); x.beginPath(); x.ellipse(X + cx * W, Y + cy * W, r * .82 * W, r * W, 0, 0, 7); x.clip();
+    E(cx, cy + r * .55, r * .7, r * .55, iris); x.restore();
+    C(cx - r * .3, cy - r * .38, r * .34, "#fff"); C(cx + r * .32, cy + r * .3, r * .14, "rgba(255,255,255,.85)");
+  };
+  x.save(); x.beginPath(); x.roundRect(X, Y, W, W, W * .18); x.clip();
+
+  if (style === "dot") { /* 지금 판: 둥근 네모 얼굴 + 점 눈 */
+    fillAll(LG(0, 0, 1, 1, [[0, H(hue, 70, 82)], [1, H(hue + 35, 60, 64)]]));
+    const fx = .5, fy = .58, fw = .62; x.fillStyle = "#fffaf4"; x.beginPath(); x.roundRect(X + (fx - fw / 2) * W, Y + (fy - fw * .45) * W, fw * W, fw * .9 * W, fw * .28 * W); x.fill();
+    const ear = (hue >> 4) % 3;
+    if (ear === 0) [-1, 1].forEach(d => { x.beginPath(); x.moveTo(X + (fx + d * fw * .42) * W, Y + (fy - fw * .3) * W); x.lineTo(X + (fx + d * fw * .3) * W, Y + (fy - fw * .72) * W); x.lineTo(X + (fx + d * fw * .1) * W, Y + (fy - fw * .42) * W); x.fill(); });
+    else if (ear === 1) { x.strokeStyle = "#fffaf4"; x.lineWidth = W * .05; x.beginPath(); x.moveTo(X + fx * W, Y + (fy - fw * .45) * W); x.lineTo(X + fx * W, Y + (fy - fw * .7) * W); x.stroke(); C(fx, fy - fw * .74, .05, "#fffaf4"); }
+    [-1, 1].forEach(d => C(fx + d * fw * .2, fy - fw * .05, .045, "#2a2a33"));
+    [-1, 1].forEach(d => E(fx + d * fw * .32, fy + fw * .1, .06, .035, H(hue, 80, 70, .7)));
+    x.strokeStyle = "#2a2a33"; x.lineWidth = W * .03; x.beginPath(); x.arc(X + fx * W, Y + (fy + fw * .06) * W, W * .06, .2, Math.PI - .2); x.stroke();
+  }
+
+  else if (style === "scene") { /* 풍경 사진 느낌: 노을/밤 + 산 겹 */
+    const night = Math.floor(hue / 13) % 4 === 0, h0 = night ? 230 : [20, 300, 340, 40][Math.floor(hue / 7) % 4];
+    fillAll(LG(0, 0, 0, 1, night ? [[0, "#0b1030"], [.6, "#2a2f6b"], [1, "#6c5aa6"]] : [[0, H(h0 + 200, 60, 55)], [.5, H(h0, 85, 70)], [1, H(h0 + 25, 95, 75)]]));
+    if (night) for (let i = 0; i < 26; i++) C(rn(), rn() * .55, .004 + rn() * .006, `rgba(255,255,255,${.4 + rn() * .6})`);
+    const sx = .3 + rn() * .4, sy = night ? .26 : .5;
+    x.fillStyle = RG(sx, sy, .3, [[0, night ? "rgba(255,250,220,.5)" : "rgba(255,240,200,.9)"], [1, "rgba(255,240,200,0)"]]); x.fillRect(X, Y, W, W);
+    C(sx, sy, .09, night ? "#fff7da" : "#fff3c4");
+    if (night) C(sx + .035, sy - .02, .08, "#262b63");
+    const layers = night ? ["#3b3f86", "#272a5e", "#15173a"] : [H(h0 + 330, 40, 62), H(h0 + 320, 40, 45), H(h0 + 300, 45, 28)];
+    layers.forEach((col, k) => { x.fillStyle = col; x.beginPath(); x.moveTo(X, Y + W); let px = 0, py = .58 + k * .1; x.lineTo(X, Y + py * W);
+      while (px < 1) { px += .08 + rn() * .14; py = .5 + k * .12 + (rn() - .5) * .16; x.lineTo(X + px * W, Y + py * W); } x.lineTo(X + W, Y + W); x.fill(); });
+  }
+
+
+  x.restore();
+}
+</script>
+
+
+<div class="wrap">
+
+  <header class="head">
+    <div>
+      <h1 class="mark"><svg class="logo" viewBox="14 -172 944 251" role="img" aria-label="SNAP MASK"><defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="#ff5470"/><stop offset="1" stop-color="#4f8dff"/></linearGradient></defs><path fill="url(#lg)" d="M151 -135Q151 -131 152 -130Q152 -129 152 -127Q152 -120 149 -114Q146 -109 141 -106Q137 -112 131 -116Q125 -119 118 -122Q112 -124 104 -126Q97 -127 90 -127Q83 -127 77 -126Q71 -125 66 -123Q61 -121 58 -118Q56 -115 56 -112Q56 -107 61 -103Q66 -98 73 -94Q80 -90 88 -85Q97 -81 105 -77Q115 -73 123 -68Q130 -64 135 -60Q140 -55 142 -48Q145 -42 145 -33Q145 -23 141 -14Q138 -5 131 1Q125 8 116 12Q106 15 95 15Q84 15 71 12Q58 8 46 2Q35 -3 28 -11Q20 -19 20 -27Q20 -31 22 -38Q25 -44 31 -51Q31 -45 37 -36Q43 -28 55 -21Q66 -15 78 -12Q89 -9 100 -9Q111 -9 118 -12Q125 -15 129 -18Q133 -22 134 -26Q136 -30 136 -33Q136 -37 132 -40Q129 -44 123 -48Q117 -51 109 -55Q102 -58 93 -62Q81 -68 72 -72Q62 -77 56 -82Q51 -88 48 -93Q45 -99 45 -106Q45 -117 52 -127Q59 -137 72 -142Q78 -145 85 -146Q93 -148 100 -148Q113 -148 125 -144Q138 -140 151 -135ZM192 -97Q197 -95 202 -90Q207 -84 209 -78Q207 -72 202 -65Q197 -57 193 -49Q188 -41 184 -34Q181 -27 180 -23Q183 -26 187 -30Q191 -35 195 -40Q199 -44 202 -48Q205 -51 207 -53Q211 -57 216 -62Q221 -68 227 -72Q232 -77 238 -80Q244 -84 249 -84Q254 -84 258 -80Q261 -77 263 -73Q263 -73 262 -72Q260 -71 257 -68Q254 -64 251 -58Q247 -52 244 -44Q241 -37 239 -30Q236 -22 236 -16Q236 -11 238 -9Q239 -8 241 -8Q244 -8 246 -9Q248 -10 250 -10Q251 -10 251 -8Q252 -7 252 -6Q250 -5 248 -3Q246 -2 243 -1Q241 1 238 1Q236 2 234 2Q229 2 225 0Q221 -1 219 -4Q217 -7 216 -11Q215 -15 215 -19Q215 -21 216 -24Q216 -27 217 -32Q219 -36 221 -41Q223 -47 226 -55Q226 -55 221 -52Q216 -49 210 -44Q201 -35 193 -26Q186 -17 178 -6Q174 0 170 4Q167 9 165 10Q160 8 158 3Q156 -1 155 -6Q155 -9 156 -15Q158 -21 160 -28Q161 -35 164 -43Q167 -51 170 -59Q178 -76 184 -86Q191 -96 192 -97ZM337 -81Q339 -81 342 -80Q344 -79 346 -78Q349 -77 350 -76Q352 -75 352 -74Q348 -65 344 -57Q341 -48 338 -41Q336 -33 335 -26Q333 -19 333 -14Q333 -9 335 -5Q336 -1 339 0Q336 2 332 3Q329 4 326 4Q315 4 315 -11Q315 -22 322 -42Q318 -33 313 -25Q308 -17 303 -10Q297 -4 292 0Q286 4 282 4Q274 4 270 -3Q265 -9 265 -20Q265 -31 270 -43Q275 -56 282 -66Q290 -77 298 -84Q307 -91 315 -92Q317 -91 320 -89Q322 -87 325 -85Q327 -83 329 -80Q330 -78 330 -76Q322 -75 314 -68Q305 -61 298 -52Q292 -43 287 -32Q283 -22 283 -12Q283 -9 286 -8Q291 -9 299 -18Q307 -26 317 -44Q319 -48 322 -52Q324 -57 327 -62Q330 -66 332 -71Q335 -76 337 -81ZM347 66Q344 65 344 60Q343 58 343 54Q343 50 343 46Q343 42 344 34Q345 27 348 18Q350 9 354 -2Q358 -13 362 -24Q367 -38 371 -48Q375 -58 378 -65Q381 -73 383 -77Q384 -82 385 -86Q386 -88 388 -91Q389 -95 391 -98Q393 -102 396 -105Q398 -108 400 -110Q407 -109 413 -106Q419 -103 420 -101Q418 -98 414 -93Q410 -87 407 -81Q404 -74 401 -68Q398 -61 397 -56Q399 -59 402 -63Q405 -67 412 -74Q419 -82 426 -86Q432 -90 437 -90Q444 -90 449 -86Q454 -81 454 -75Q454 -60 449 -46Q445 -32 436 -21Q432 -16 428 -12Q423 -8 418 -5Q413 -2 408 0Q403 1 400 1Q396 1 393 0Q391 -2 390 -4Q397 -8 405 -17Q412 -25 419 -36Q425 -46 430 -59Q434 -71 437 -84Q429 -80 423 -75Q417 -70 411 -63Q404 -54 399 -49Q395 -43 393 -39Q390 -36 388 -32Q386 -29 384 -24Q382 -18 378 -7Q374 3 370 16Q366 29 362 44Q359 59 355 73Q353 73 351 70Q350 68 349 67Q348 67 347 66ZM592 15Q592 15 592 15Q591 15 590 15Q587 15 584 14Q580 13 576 12Q573 11 570 9Q568 7 567 6Q567 3 567 0Q567 -3 567 -5Q567 -28 570 -52Q574 -77 581 -105Q582 -108 583 -112Q584 -116 585 -121Q580 -118 573 -109Q567 -101 560 -90Q552 -78 545 -65Q538 -51 532 -38Q526 -24 521 -10Q517 4 516 15Q506 12 503 10Q499 7 499 3Q499 -1 501 -7Q503 -14 507 -23Q511 -32 517 -43Q523 -54 530 -67Q538 -82 546 -94Q553 -107 561 -118Q568 -128 575 -136Q582 -143 589 -147Q592 -147 597 -146Q602 -144 606 -142Q611 -140 614 -138Q618 -136 618 -135Q615 -129 611 -118Q608 -107 604 -93Q600 -78 596 -62Q593 -47 591 -32Q595 -43 602 -55Q608 -67 614 -78Q621 -90 628 -101Q635 -112 642 -121Q649 -130 655 -137Q661 -144 665 -147Q668 -147 673 -146Q678 -144 682 -142Q687 -140 690 -138Q694 -136 694 -135Q688 -123 683 -107Q678 -91 675 -73Q671 -55 670 -37Q668 -19 668 -5Q668 -1 668 4Q668 9 668 15Q666 15 662 14Q658 13 654 12Q650 11 647 10Q644 8 643 6Q643 3 643 0Q643 -3 643 -5Q643 -28 646 -52Q650 -77 657 -105Q658 -108 659 -113Q660 -117 661 -123Q655 -120 648 -112Q641 -104 634 -93Q627 -81 620 -68Q612 -54 607 -40Q601 -25 597 -11Q593 3 592 15ZM766 -81Q768 -81 771 -80Q774 -79 776 -78Q778 -77 780 -76Q781 -75 781 -74Q777 -65 774 -57Q770 -48 768 -41Q766 -33 764 -26Q763 -19 763 -14Q763 -9 764 -5Q765 -1 768 0Q766 2 762 3Q758 4 755 4Q744 4 744 -11Q744 -22 752 -42Q748 -33 743 -25Q738 -17 732 -10Q727 -4 721 0Q716 4 711 4Q704 4 699 -3Q695 -9 695 -20Q695 -31 699 -43Q704 -56 712 -66Q719 -77 728 -84Q737 -91 745 -92Q747 -91 750 -89Q752 -87 754 -85Q757 -83 758 -80Q760 -78 760 -76Q752 -75 744 -68Q735 -61 728 -52Q721 -43 717 -32Q712 -22 712 -12Q712 -9 715 -8Q721 -9 729 -18Q736 -26 747 -44Q749 -48 752 -52Q754 -57 757 -62Q759 -66 762 -71Q764 -76 766 -81ZM860 -80Q860 -76 859 -72Q858 -68 856 -64Q855 -61 853 -59Q851 -57 850 -57Q847 -57 847 -60Q847 -60 848 -62Q848 -63 849 -64Q849 -66 850 -68Q850 -69 850 -70Q850 -73 849 -75Q848 -77 845 -77Q837 -77 833 -67Q829 -57 829 -38Q829 -36 829 -35Q833 -35 837 -36Q840 -36 843 -36Q843 -35 843 -34Q843 -32 843 -31Q838 -30 835 -30Q833 -29 831 -28Q830 -28 830 -27Q829 -26 829 -25Q829 -24 829 -22Q829 -20 829 -18Q829 -1 820 9Q811 19 795 21Q792 21 789 19Q786 18 784 16Q781 13 779 11Q777 8 776 5Q776 -2 779 -9Q782 -16 788 -22Q793 -27 801 -30Q808 -33 817 -34Q817 -39 816 -44Q815 -49 814 -53Q813 -58 812 -62Q811 -66 811 -70Q811 -76 813 -81Q815 -86 819 -91Q823 -95 827 -99Q832 -102 837 -103Q840 -102 843 -100Q847 -97 851 -93Q854 -89 857 -86Q860 -82 860 -80ZM794 12Q799 10 804 6Q808 2 811 -3Q814 -8 816 -13Q818 -18 818 -24Q814 -23 809 -20Q804 -17 800 -12Q796 -8 793 -4Q790 1 790 4Q790 9 794 12ZM861 -19Q861 -26 865 -39Q868 -52 874 -67Q880 -82 888 -98Q896 -114 903 -128Q911 -142 918 -153Q925 -163 930 -166Q933 -166 936 -164Q940 -162 942 -159Q945 -156 947 -152Q949 -149 949 -146Q940 -139 931 -128Q921 -116 913 -103Q905 -89 898 -74Q890 -59 886 -44Q892 -55 899 -64Q906 -73 913 -80Q920 -86 927 -90Q933 -93 939 -93Q948 -87 948 -76Q948 -70 946 -64Q943 -57 939 -52Q934 -46 929 -42Q923 -38 917 -37Q919 -30 922 -23Q926 -16 930 -9Q934 -2 940 4Q945 10 952 14Q951 16 949 18Q947 20 944 21Q942 23 938 24Q935 24 932 24Q926 24 922 19Q917 14 913 3Q910 -5 907 -16Q905 -28 902 -40Q905 -42 909 -45Q914 -49 918 -53Q936 -70 936 -83Q936 -84 934 -84Q930 -84 924 -81Q919 -77 913 -71Q907 -64 900 -56Q894 -47 888 -37Q886 -33 884 -28Q882 -23 880 -17Q879 -12 878 -6Q877 -1 877 4Q877 7 878 8Q872 8 870 5Q869 3 868 1Q866 0 865 -1Q863 -3 862 -7Q861 -12 861 -19Z"/></svg></h1>
+    </div>
+    <div class="ver">v1.0</div>
+  </header>
+
+  <div class="main">
+    <div class="stagebox">
+      <div class="stage" id="stage">
+        <canvas id="cv" width="1920" height="1080" aria-label="미리보기 — 칸을 누르면 켜고 끕니다 · 끌면 새 칸"></canvas>
+        <span class="lab l" id="labL">가린 뒤</span><span class="lab r" id="labR">원본</span>
+        <div class="split" id="split"><div class="knob" id="knob" tabindex="0" role="slider" aria-label="원본과 가린 뒤 견주기" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">⇔</div></div>
+        <div class="sample" id="sampleTag"><span class="t1">SAMPLE</span></div>
+                <div class="drop" id="drop" hidden>여기에 놓기</div>
+      </div>
+      <div class="ticks" aria-hidden="true"></div>
+      <div class="stagecap">
+        <span id="capL"><button class="b tool" id="tool" aria-pressed="false">▭ 직접 가리기</button><span class="toolhint" id="toolHint" hidden>미리보기에서 끌면 그 자리를 바로 칠함 · 칸을 누르면 지움 · Esc 로 끄기</span></span>
+        <span id="capR">키보드 <kbd>←</kbd> <kbd>→</kbd> 로 밀기 · <kbd>Space</kbd> 누르는 동안 원본</span>
+      </div>
+      <div class="below" id="below">
+        <p class="lead">스크린샷의 <b>프로필 사진 · 닉네임 · UID</b> 를 가려서 저장합니다.<br><b>서버가 없습니다</b> — 그림을 불러온 뒤 인터넷을 끊어도 그대로 작동합니다.</p>
+        <ol class="howto v-B">
+          <li><span>1</span><b>넣기</b><em>파일 고르기 · 끌어 놓기 · Ctrl+V</em></li>
+          <li><span>2</span><b>고르기</b><em>화면 · 가릴 목록 · 직접 가리기</em></li>
+          <li><span>3</span><b>저장</b><em>PNG 저장 · 복사해서 바로 올리기</em></li>
+        </ol>
+        <div class="pledge v-C"><div><b>서버 없음</b><em>그림이 이 페이지 밖으로 나가지 않음</em></div><div><b>업로드 없음</b><em>인터넷 없이 작동</em></div><div><b>쿠키 없음</b><em>남기는 기록 없음</em></div></div>
+        <div class="kinds v-D"><button data-k="result"><canvas width="320" height="180"></canvas>결과창</button><button data-k="board"><canvas width="320" height="180"></canvas>리더보드</button><button data-k="play"><canvas width="320" height="180"></canvas>플레이 화면</button></div>
+      </div>
+    </div>
+
+    <aside class="panel">
+      <section class="step">
+        <h2 class="sh"><span class="n">01</span>스크린샷</h2>
+        <label class="b big" for="file">파일 고르기<input id="file" type="file" accept="image/*"></label>
+      </section>
+
+      <section class="step">
+        <h2 class="sh"><span class="n">02</span>화면</h2>
+        <div class="seg" id="kind" role="tablist"><button data-k="result" role="tab">결과창</button><button data-k="board" role="tab">리더보드</button><button data-k="play" role="tab">플레이 화면</button></div>
+        <h2 class="sh" style="margin-top:18px"><span class="n">03</span>가릴 목록</h2>
+        <div class="chips" id="chips"></div>
+        <div class="sub">가리는 방식</div>
+        <div class="seg sm" id="style"><button data-s="fill">칠하기</button><button data-s="mosaic">모자이크</button></div>
+      </section>
+
+      <section class="step" id="fitStep">
+        <h2 class="sh"><span class="n">04</span>화면 맞춤</h2>
+        <!-- 이름 B 변형: 늘 보인다 -->
+        <div id="fitB">
+          <div class="fitrow" id="ancB"></div>
+          <p class="hint">창 모드로 찍은 스샷은 대개 <b>위가 잘림</b>입니다.</p>
+          <p class="fitinfo" id="fitinfoB"></p>
+        </div>
+        <!-- 이름 배치안: 평소엔 자동만 · 어긋날 때 펼침 -->
+        <div id="fitF">
+          <div class="fitok"><button class="b on" id="autoF">자동</button><span class="st" id="fitinfoF"></span></div>
+          <p class="hint" style="margin-top:8px">칸이 어긋나 보인다면 <button class="linkish" id="openF" aria-expanded="false">직접 맞추기 ▾</button></p>
+          <div class="fold" id="foldF" hidden>
+            <div class="fitrow" id="ancF"></div>
+            <p class="hint">스샷 모양에 맞춰 고릅니다. 창 모드로 찍으면 위가 잘립니다. 조금씩은 ▲▼ 로 옮깁니다.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="step">
+        <h2 class="sh"><span class="n">05</span>저장</h2>
+        <div class="save"><button class="b go big" id="save">PNG 저장</button><button class="b big" id="copy" style="width:auto">복사</button></div>
+        <div class="toast" id="toast" role="status"></div>
+      </section>
+      <div class="tip" id="tip" role="tooltip" hidden><div class="tipfig" id="tipFig"></div><p id="tipTxt"></p></div>
+    </aside>
+  </div>
+
+  <div class="foot"><span>서버 없음 · 업로드 없음 · 쿠키 없음</span><span>EZ2ON 팬이 만든 비공식 도구</span><a id="codeLine" href="https://github.com/laneworks/SnapMask" target="_blank" rel="noopener">코드는 GitHub 에서 볼 수 있습니다</a></div>
+</div>
+
+<script>
+(() => {
+  /* ── 칸 자리 (v0.3 그대로 · 16:9 비율) ── */
+  const LAYOUT = {
+    result: [
+      { id: "me", name: "내 프로필", r: [0, 0, 0.300, 0.065], on: false },
+      { id: "mate", name: "메이트 사진·이름", r: [0.080, 0.652, 0.262, 0.905], on: true },
+      { id: "mates", name: "메이트 점수", r: [0.262, 0.652, 0.426, 0.905], on: true },
+      { id: "uid", name: "UID", r: [0, 0.962, 0.062, 1], on: false },
+      { id: "rating", name: "레이팅", r: [0.272, 0.568, 0.332, 0.612], on: false },
+    ],
+    play: [
+      { id: "me", name: "프로필 카드", r: [0.0286, 0.812, 0.3285, 0.878], on: true },
+      { id: "uid", name: "UID", r: [0, 0.978, 0.056, 1], on: true },
+    ],
+    board: [
+      { id: "me", name: "내 프로필", r: [0, 0, 0.300, 0.065], on: true },
+      ...Array.from({ length: 10 }, (_, i) => ({ id: "row" + i, name: "PLAYER " + (i + 1), r: [0.4425, (243 + 81.1 * i) / 1125, 0.742, (243 + 81.1 * i + 72) / 1125], on: true })),
+      { id: "uid", name: "UID", r: [0, 0.962, 0.062, 1], on: true },
+    ],
+  };
+  const st = { tool: false, kind: "result", style: "fill", img: null, orig: null, boxes: [], custom: [], sample: true, anchor: "auto", nudge: 0, frame: null, fitNote: "", fitAuto: "", split: 0.5, prev: "slide" };
+  const cv = document.getElementById("cv"), g = cv.getContext("2d");
+  const $ = id => document.getElementById(id), H = document.documentElement;
+
+
+  /* ── 화면 맞춤 단추 (그림 붙은 B 변형) ── */
+  const ICON = {
+    bottom: '<svg class="ico" viewBox="0 0 22 14" aria-hidden="true"><rect x="1" y="1" width="20" height="12" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="1" y="1" width="20" height="4" fill="currentColor" opacity=".55"/></svg>',
+    center: '<svg class="ico" viewBox="0 0 22 14" aria-hidden="true"><rect x="1" y="1" width="20" height="12" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="1" y="1" width="20" height="2.2" fill="currentColor"/><rect x="1" y="10.8" width="20" height="2.2" fill="currentColor"/></svg>',
+    top: '<svg class="ico" viewBox="0 0 22 14" aria-hidden="true"><rect x="1" y="1" width="20" height="12" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="1" y="9" width="20" height="4" fill="currentColor" opacity=".55"/></svg>',
+  };
+  const ANC = [["auto", "자동", ""], ["bottom", "위가 잘림", ICON.bottom], ["center", "가운데 맞춤", ICON.center], ["top", "아래가 잘림", ICON.top]];
+  function ancRow(el, withAuto) {
+    el.innerHTML = ANC.filter(a => withAuto || a[0] !== "auto").map(a => `<button class="b ${a[0] === "auto" ? "auto" : "shape"}" data-a="${a[0]}">${a[2]}${a[1]}</button>`).join("") +
+      '<span class="nud">조금씩 옮기기 <button class="b" data-n="-4" aria-label="칸을 위로">▲</button><button class="b" data-n="4" aria-label="칸을 아래로">▼</button></span>';
+    el.querySelectorAll("[data-a]").forEach(b => b.onclick = () => { st.anchor = b.dataset.a; st.nudge = 0; fit(); syncBtns(); draw(); });
+    el.querySelectorAll("[data-n]").forEach(b => b.onclick = () => { st.nudge += +b.dataset.n; fit(); syncBtns(); draw(); });
+  }
+  function applyName() {
+    const fold = H.dataset.name === "fold";
+    $("fitB").hidden = fold; $("fitF").hidden = !fold;
+  }
+  $("openF").onclick = () => { const f = $("foldF"), o = f.hidden; f.hidden = !o; $("openF").setAttribute("aria-expanded", String(o)); $("openF").textContent = o ? "접기 ▴" : "직접 맞추기 ▾"; };
+  $("autoF").onclick = () => { st.anchor = "auto"; st.nudge = 0; fit(); syncBtns(); draw(); };
+
+  function applyPrev() {
+    const slide = H.dataset.prev === "slide";
+    $("split").hidden = !slide; $("labL").hidden = !slide; $("labR").hidden = !slide; $("capR").hidden = !slide;
+    placeSplit();
+  }
+
+  function resetBoxes() { st.boxes = LAYOUT[st.kind].map(b => ({ ...b })); }
+  function syncBtns() {
+    document.querySelectorAll("#kind button, .kinds button").forEach(b => b.classList.toggle("on", b.dataset.k === st.kind));
+    document.querySelectorAll("#style button").forEach(b => b.classList.toggle("on", b.dataset.s === st.style));
+    document.querySelectorAll("#ancB [data-a], #ancF [data-a]").forEach(b => b.classList.toggle("on", b.dataset.a === st.anchor));
+    $("autoF").classList.toggle("on", st.anchor === "auto");
+    const chips = st.boxes.map((b, i) => `<button class="chip${b.on ? " on" : ""}" data-i="${i}" aria-pressed="${b.on}"><i></i>${b.name}</button>`);
+    st.custom.forEach((b, i) => chips.push(`<button class="chip cust" data-c="${i}" title="누르면 지움"><i></i>직접 가린 곳 ${i + 1} ×</button>`));
+    $("chips").innerHTML = chips.join("");
+    $("chips").querySelectorAll("[data-i]").forEach(el => el.onclick = () => { const b = st.boxes[+el.dataset.i]; b.on = !b.on; syncBtns(); draw(); });
+    $("chips").querySelectorAll("[data-c]").forEach(el => el.onclick = () => { st.custom.splice(+el.dataset.c, 1); syncBtns(); draw(); });
+    $("fitinfoB").textContent = st.fitNote; $("fitinfoF").textContent = st.fitAuto;
+  }
+
+  /* 예시 그림 — 진짜 스크린샷이 아니다(가짜 이름). 2.0 배치(2000×1125 기준 자리)를 흉내 낸 그림 */
+  function sampleImage(kind) {
+    const c = document.createElement("canvas"); c.width = 1920; c.height = 1080; const x = c.getContext("2d");
+    const S = 1920 / 2000, R = (a, b, w, h, col) => { x.fillStyle = col; x.fillRect(a * S, b * S, w * S, h * S); };
+    const T = (s, a, b, size, col, wt, al) => { x.fillStyle = col; x.font = (wt || 400) + " " + (size * S) + "px sans-serif"; x.textAlign = al || "left"; x.textBaseline = "alphabetic"; x.fillText(s, a * S, b * S); x.textAlign = "left"; };
+    const RR = (a, b, w, h, r, col, stroke) => { x.beginPath(); x.roundRect(a * S, b * S, w * S, h * S, r * S); if (stroke) { x.strokeStyle = col; x.lineWidth = stroke * S; x.stroke(); } else { x.fillStyle = col; x.fill(); } };
+    const rnd = (a, b) => a + Math.random() * (b - a), ri = (a, b) => Math.floor(rnd(a, b + 1)), pick = arr => arr[ri(0, arr.length - 1)];
+    const fmt = n => n.toLocaleString("en-US"), pad = (n, k) => String(n).padStart(k, "0");
+    /* 점수·등급 — 본체 실측 식(84차 A497 · 85차 1,318판): 점수 = 1,100,000 × (KOOL + 0.7·COOL + 0.2·GOOD) ÷ TOTAL + MAX COMBO */
+    const scoreOf = (k, c, g, t, mc) => Math.round(1100000 * (k + 0.7 * c + 0.2 * g) / t + mc);
+    const rankOf = sc => sc >= 1090000 ? "S+++" : sc >= 1050000 ? "S++" : sc >= 1025000 ? "S+" : sc >= 1000000 ? "S" : sc >= 950000 ? "A+" : sc >= 900000 ? "A" : "B";
+    /* 얼굴 아바타 — 둥근 네모에 점 눈 둘 (가짜 프로필 사진) */
+    const avatar = (a, b, s, hue) => { AV(x, a * S, b * S, s * S, hue, "dot"); return s * .22; };
+    const jacket = (a, b, s, hue) => AV(x, a * S, b * S, s * S, hue, "scene");   /* 곡 재킷 자리 — 풍경 */
+    /* 프로필 카드(흰 바탕 + 옅은 분홍 그림 자리) — 결과창·리더보드 맨 위, 플레이 화면 왼쪽 아래 */
+    const card = (a, b, w, h, lvl, name, rating) => {
+      const gg = x.createLinearGradient(a * S, 0, (a + w) * S, 0); gg.addColorStop(0, "#fbf6f8"); gg.addColorStop(.55, "#f7e8ee"); gg.addColorStop(1, "#f1cfdc"); x.fillStyle = gg; x.fillRect(a * S, b * S, w * S, h * S);
+      avatar(a + 6, b + 6, h - 12, 330);
+      T("LV.", a + h + 4, b + h * .32, h * .16, "#666", 600); T(lvl, a + h + 72, b + h * .5, h * .42, "#111", 800, "right");
+      T(name, a + h + 84, b + h * .48, h * .3, "#111", 600);
+      R(a + h + 2, b + h * .62, 70, h * .28, "#222"); T("RATING " + rating, a + h + 6, b + h * .82, h * .17, "#fff", 600);
+      R(a + h + 82, b + h * .62, 150, h * .28, "#222"); T("TITLE", a + h + 157, b + h * .82, h * .17, "#fff", 600, "center");
+    };
+    const uid = () => { T("261003.LIVE", 6, 1096, 13, "#9aa4b5"); T("UID: 000000000", 6, 1115, 13, "#9aa4b5"); };
+
+    if (kind === "board") {
+      /* 리더보드 TOP 100 — 랭킹 1~10 */
+      const bg = x.createLinearGradient(0, 0, 0, 1080); bg.addColorStop(0, "#1b2a44"); bg.addColorStop(.7, "#2a4f7a"); bg.addColorStop(1, "#6e57a8"); x.fillStyle = bg; x.fillRect(0, 0, 728 * S, 1080);
+      x.fillStyle = "rgba(255,255,255,.06)"; x.beginPath(); x.arc(360 * S, 330 * S, 190 * S, 0, 7); x.fill();
+      R(728, 0, 1272, 1125, "#0c0d10");
+      T("PATTERN LEADERBOARD", 760, 52, 26, "#fff", 700); T("LAST UPDATED 2026.10.07 08:54 PM", 760, 74, 14, "#3fd0ef", 500);
+      RR(1525, 38, 52, 28, 3, "#666", 1.5); T("TAB", 1551, 58, 16, "#ccc", 600, "center");
+      RR(1584, 34, 104, 36, 3, "#2fb7ea"); T("TOP 100", 1636, 58, 17, "#fff", 700, "center");
+      T("MY RANGE", 1745, 58, 17, "#777", 600, "center"); T("MY MATE", 1855, 58, 17, "#777", 600, "center");
+      x.strokeStyle = "#ddd"; x.lineWidth = 3 * S; x.beginPath(); x.arc(1952 * S, 52 * S, 16 * S, 0, 7); x.stroke();
+      R(780, 105, 1168, 75, "#16181d"); jacket(785, 112, 62, ri(0, 359)); T("SONG TITLE", 875, 140, 26, "#fff", 500); T("ARTIST • BPM 132.5", 875, 165, 14, "#aaa");
+      RR(1006, 151, 128, 18, 9, "#f39a1c"); T("PACK NAME", 1070, 165, 13, "#111", 700, "center");
+      [["3", "EZ"], ["7", "NM"], ["12", "HD"], [String(ri(13, 18)), "SHD"]].forEach((d, i) => { const cx = 1625 + 68 * i; T(d[0], cx, 147, 36, i === 3 ? "#fff" : "#888", 500, "center"); T(d[1], cx, 166, 11, "#aaa", 600, "center"); R(cx - 26, 173, 52, 4, i === 3 ? "#7ee0b0" : "#444"); });
+      x.fillStyle = "#c62e3e"; x.beginPath(); x.arc(1911 * S, 141 * S, 22 * S, 0, 7); x.fill();
+      R(780, 195, 1168, 40, "#15171b"); T("RANK", 833, 222, 18, "#ccc", 500, "center"); T("PLAYER INFO", 1185, 222, 18, "#ccc", 500, "center"); T("SCORE", 1578, 222, 18, "#ccc", 500, "center"); T("JUDGE RATE", 1765, 222, 18, "#ccc", 500, "center"); T("MATE", 1903, 222, 18, "#ccc", 500, "center");
+      const TOT = ri(900, 2100), top = 1100000 + TOT, rows = [];
+      let v = top - (Math.random() < .5 ? 0 : ri(0, 250));
+      for (let i = 0; i < 10; i++) { rows.push(v); if (Math.random() > .18) v -= ri(30, 420); }
+      const rk = rows.map((v2, i) => rows.indexOf(v2) + 1);
+      const sc = rows.map(fmt), jr = rows.map(v2 => (Math.min(100, (v2 - TOT) / 11000)).toFixed(2) + "%");
+      const lv = rows.map(() => ri(250, 999)), rt = rows.map(() => (23.2 + Math.random() * .45).toFixed(3)), hues = rows.map(() => ri(0, 359)), lights = rows.map(() => Math.random() < .3);
+      for (let i = 0; i < 10; i++) {
+        const y = 243 + 81.1 * i, light = lights[i];
+        R(780, y, 1168, 72, "#191b20"); R(885, y, 598, 72, light ? "#f2eef0" : "#22252c");
+        T(String(rk[i]), 833, y + 48, 30, "#fff", 500, "center");
+        avatar(895, y + 10, 53, hues[i]);
+        const ink = light ? "#111" : "#fff";
+        T("LV.", 958, y + 22, 12, light ? "#555" : "#bbb", 600); T(String(lv[i]), 1060, y + 39, 32, ink, 600, "right"); T("PLAYER " + (i + 1), 1073, y + 34, 20, ink, 600);
+        R(958, y + 42, 102, 22, light ? "#222" : "#2e3138"); T("RATING " + rt[i], 963, y + 59, 13, "#fff", 600);
+        R(1073, y + 42, 186, 22, "#111"); T("TITLE", 1166, y + 59, 13, "#fff", 600, "center");
+        T(sc[i], 1578, y + 48, 30, "#fff", 500, "center"); T(jr[i], 1765, y + 48, 30, "#fff", 500, "center");
+        x.strokeStyle = "#555"; x.lineWidth = 2 * S; x.beginPath(); x.arc(1903 * S, (y + 30) * S, 8 * S, 0, 7); x.stroke();
+      }
+      RR(1198, 1081, 72, 28, 3, "#666", 1.5); T("L Shift", 1234, 1101, 15, "#ddd", 500, "center"); T("1/10", 1364, 1101, 17, "#ddd", 500, "center"); RR(1459, 1081, 72, 28, 3, "#666", 1.5); T("R Shift", 1495, 1101, 15, "#ddd", 500, "center");
+      card(0, 0, 600, 72, "999", "PLAYER_NAME", "23.365");   /* 맨 위 내 프로필 자리(2.0 TOP 100 은 왼쪽 위가 흐린 바탕이라 칸만 있다) */
+      uid(); return c;
+    }
+
+    if (kind === "play") {
+      /* 플레이 화면(녹화·방송) — 가운데 레인 · 왼쪽 아래 프로필 카드 + 판정 다섯 + RATE (시작 전이라 전부 0) */
+      x.fillStyle = "#000"; x.fillRect(0, 0, 1920, 1080);
+      const ln = x.createLinearGradient(0, 0, 0, 1080); ln.addColorStop(0, "#050608"); ln.addColorStop(.75, "#10131b"); ln.addColorStop(1, "#1a1d26"); x.fillStyle = ln; x.fillRect(785 * S, 0, 432 * S, 1080);
+      R(783, 0, 3, 1125, "#2a2e38"); R(1216, 0, 3, 1125, "#2a2e38"); R(1240, 120, 4, 700, "#3a3f4b");
+      T("COMBO", 1000, 225, 12, "#9aa", 600, "center"); T("0", 1000, 300, 90, "#3b3f48", 800, "center");
+      [838, 940, 1060, 1162].forEach(cx => { x.strokeStyle = "#888"; x.lineWidth = 6 * S; x.beginPath(); x.arc(cx * S, 818 * S, 26 * S, 0, 7); x.stroke(); x.fillStyle = "#2a2d34"; x.fill(); });
+      x.strokeStyle = "#ccc"; x.lineWidth = 6 * S; x.beginPath(); x.arc(1000 * S, 1000 * S, 55 * S, -2.2, 2.2 - 3.14); x.stroke();
+      T("00000", 868, 1010, 15, "#ddd", 600, "center"); T("0000000", 1122, 1010, 15, "#ddd", 600, "center");
+      card(58, 914, 598, 74, "999", "PLAYER_NAME", "23.365");
+      R(58, 988, 598, 113, "#0d0f14");
+      T("SONG TITLE", 357, 1012, 15, "#fff", 600, "center"); T("ARTIST • 4K STANDARD • SHD 13", 357, 1032, 12, "#aab", 500, "center");
+      const J = [["KOOL", "#35e0f0"], ["COOL", "#f5c43a"], ["GOOD", "#f39a3a"], ["MISS", "#e0364f"], ["FAIL", "#9b3fe0"], ["RATE", "#6b6f78"]];
+      J.forEach((j, i) => { const cx = 110 + 99 * i; RR(cx - 37, 1048, 74, 18, 2, j[1]); T(j[0], cx, 1062, 13, i === 1 ? "#222" : "#111", 600, "center"); T(i === 5 ? "0.00%" : "0", cx, 1090, 19, "#fff", 600, "center"); });
+      T("UID: 000000000", 6, 1118, 13, "#9aa4b5"); return c;
+    }
+
+    /* 결과창(2.0 STAGE RESULT) — 판정 수는 무작위, 점수·JUDGE RATE·등급은 그 수로 셈 */
+    const Tn = ri(800, 2200), Mi = Math.random() < .55 ? 0 : ri(1, 6), Fa = Math.random() < .6 ? 0 : ri(1, 5);
+    const Gd = ri(0, Math.round(Tn * pick([.002, .006, .015]))), Co = ri(Math.round(Tn * .006), Math.round(Tn * pick([.02, .05, .09])));
+    const Ko = Tn - Mi - Fa - Gd - Co, MC = Mi + Fa === 0 ? Tn : ri(Math.round(Tn * .35), Math.round(Tn * .92));
+    const SC = scoreOf(Ko, Co, Gd, Tn, MC), JR = (100 * (Ko + 0.7 * Co + 0.2 * Gd) / Tn).toFixed(2) + "%", RK = rankOf(SC);
+    const Ea = ri(0, Co + Gd), La = Co + Gd - Ea, myRt = (22.6 + Math.random() * 1).toFixed(3), lvs = (() => { const e = ri(3, 7), n = e + ri(3, 5), hd = n + ri(3, 5); return [e, n, hd, Math.min(19, hd + ri(1, 4))]; })();
+    const mates = [0, 1, 2].map(() => { const t = SC - ri(-4000, 30000); return [t, (Math.min(100, (t - Tn) / 11000)).toFixed(2) + "%"]; }).sort((p, q) => q[0] - p[0]);
+    /* 결과창(2.0 STAGE RESULT) */
+    const bg = x.createLinearGradient(0, 0, 1920, 1080); bg.addColorStop(0, "#0c1424"); bg.addColorStop(.6, "#151a33"); bg.addColorStop(1, "#3a2f7a"); x.fillStyle = bg; x.fillRect(0, 0, 1920, 1080);
+    R(0, 0, 2000, 72, "#0b0e16");
+    ["HOME", "BASIC", "STANDARD", "MULTIPLAYER", "COURSE", "LOUNGE", "OPTION"].forEach((s, i) => T(s, 860 + 135 * i, 44, 15, i === 2 ? "#fff" : "#9aa3b5", i === 2 ? 700 : 500));
+    card(0, 0, 600, 72, "999", "PLAYER_NAME", myRt);
+    /* 왼쪽 판 */
+    RR(42, 105, 811, 946, 10, "#141b2b"); R(42, 105, 90, 946, "#2aa8d8");
+    x.save(); x.translate(87 * S, 160 * S); x.rotate(Math.PI / 2); T("STANDARD", 0, 6, 15, "#e8f8ff", 600); x.restore();
+    T("4", 87, 840, 150, "rgba(255,255,255,.35)", 300, "center"); T("FOUR KEY", 87, 960, 11, "#e8f8ff", 700, "center");
+    T("STAGE RESULT", 158, 158, 22, "#cfd8e6", 600);
+    x.strokeStyle = "#3fd6f0"; x.lineWidth = 8 * S; x.beginPath(); x.arc(491 * S, 406 * S, 205 * S, 0, 7); x.stroke();
+    const jk = x.createRadialGradient(491 * S, 406 * S, 20 * S, 491 * S, 406 * S, 200 * S); jk.addColorStop(0, "#47607f"); jk.addColorStop(1, "#151d2e"); x.fillStyle = jk; x.beginPath(); x.arc(491 * S, 406 * S, 198 * S, 0, 7); x.fill();
+    T("SONG TITLE", 491, 414, 22, "#e8eef8", 500, "center");
+    T("RATING", 196, 668, 18, "#cfd8e6", 500); RR(553, 640, 116, 40, 3, "#9fb0c8", 1.5); T(myRt, 611, 669, 24, "#fff", 600, "center"); T("-", 762, 668, 16, "#9aa", 500); T("0", 822, 668, 16, "#9aa", 500);
+    T("MY MATE RANKING (TOP 5)", 166, 722, 11, "#cfd8e6", 600); T("SCORE", 776, 722, 11, "#cfd8e6", 600, "center"); T("JUDGE RATE", 912, 722, 11, "#cfd8e6", 600, "center");
+    RR(146, 730, 862 - 146, 290, 2, "#3b4a66", 1.5);
+    for (let i = 0; i < 3; i++) { const y = 742 + 58 * i; avatar(160, y, 42, 120 + i * 60); T("MATE " + (i + 1), 222, y + 28, 17, "#fff", 500); T(fmt(mates[i][0]), 776, y + 28, 17, "#fff", 500, "center"); T(mates[i][1], 912, y + 28, 17, "#fff", 500, "center"); }
+    /* 오른쪽 판 */
+    RR(874, 105, 1084, 946, 10, "#141b2b");
+    x.fillStyle = "rgba(255,255,255,.035)"; x.font = "800 " + (230 * S) + "px sans-serif"; ["RESULT", "RESULT", "RESULT"].forEach((s, i) => x.fillText(s, 900 * S, (330 + 250 * i) * S));
+    jacket(892, 118, 64, ri(0, 359)); T("SONG TITLE", 970, 150, 22, "#fff", 500); T("ARTIST • BPM 182", 970, 170, 12, "#aab", 500); RR(1100, 158, 110, 16, 8, "#f39a1c"); T("PACK", 1155, 170, 11, "#111", 700, "center");
+    [[String(lvs[0]), "EZ"], [String(lvs[1]), "NM"], [String(lvs[2]), "HD"], [String(lvs[3]), "SHD"]].forEach((d, i) => { const cx = 1615 + 68 * i; T(d[0], cx, 165, 34, i === 3 ? "#fff" : "#9aa", 400, "center"); R(cx - 24, 178, 48, 3, i === 3 ? "#7ee0b0" : "#4a5266"); });
+    x.fillStyle = "#c62e3e"; x.beginPath(); x.arc(1912 * S, 152 * S, 20 * S, 0, 7); x.fill();
+    T("TOTAL NOTES", 1000, 305, 20, "#e8eef8", 500); T(pad(Tn, 5), 1350, 305, 26, "#fff", 500, "right");
+    const JJ = [["KOOL", "#35e0f0", pad(Ko, 5)], ["COOL", "#f5c43a", pad(Co, 5)], ["GOOD", "#f39a3a", pad(Gd, 5)], ["MISS", "#e0364f", pad(Mi, 5)], ["FAIL", "#9b3fe0", pad(Fa, 5)]];
+    JJ.forEach((j, i) => { const y = 400 + 52 * i; x.fillStyle = j[1]; x.beginPath(); x.moveTo(983 * S, (y - 14) * S); x.lineTo(995 * S, (y - 7) * S); x.lineTo(983 * S, y * S); x.fill(); T(j[0], 1010, y, 20, "#e8eef8", 500); T(j[2], 1350, y, 26, "#fff", 500, "right"); });
+    T("JUDGE RATE", 1012, 703, 20, "#e8eef8", 500); T(JR, 1350, 703, 26, "#fff", 700, "right");
+    T("MAX COMBO", 1012, 754, 20, "#e8eef8", 500); T(pad(MC, 5), 1350, 754, 26, "#fff", 500, "right");
+    T("SCORE", 1012, 846, 20, "#e8eef8", 500); T(String(SC), 1090, 950, 84, "#fff", 500);
+    T("RANK", 1500, 290, 14, "#cfd8e6", 600);
+    /* 랭크 — 2.0 결과창 실측(2000 단위): S 1586~1750 × 318~532 · + 한 변 59 · S 윗변 +13 에서 70 간격으로 아래로 */
+    const gd = x.createLinearGradient(0, 318 * S, 0, 532 * S); gd.addColorStop(0, "#ffe680"); gd.addColorStop(1, "#d99a16"); x.fillStyle = gd;
+    const L = RK[0], pl = RK.length - 1; x.font = "900 " + (297 * S) + "px sans-serif"; x.textAlign = "center"; x.textBaseline = "alphabetic";
+    { const wS = x.measureText(L).width, k = Math.min(1, 162 * S / wS), cxS = (pl ? 1667 : 1700) * S; x.save(); x.translate(cxS, 532 * S); x.scale(k, 1); const g2 = x.createLinearGradient(0, -214 * S, 0, 0); g2.addColorStop(0, "#ffe680"); g2.addColorStop(1, "#d99a16"); x.fillStyle = g2; x.fillText(L, 0, 0); x.restore(); x.fillStyle = gd; } x.textAlign = "left";
+    for (let q = 0; q < pl; q++) { const cx = 1780, cy = 360 + 70 * q, hs = 29.5, t = 8.5; x.fillRect((cx - hs) * S, (cy - t) * S, 2 * hs * S, 2 * t * S); x.fillRect((cx - t) * S, (cy - hs) * S, 2 * t * S, 2 * hs * S); }
+    RR(1565, 580, 266, 46, 23, "#1d7fa6"); RR(1565, 580, 266, 46, 23, "#6fe6ff", 2); T("CLEAR", 1698, 611, 20, "#fff", 700, "center");
+    [["EARLY | LATE THRESHOLD", "22ms"], ["EARLY", pad(Ea, 5)], ["LATE", pad(La, 5)]].forEach((r, i) => { const y = 703 + 47 * i; T(r[0], 1520, y, 16, "#cfd8e6", 500); T(r[1], 1910, y, 20, "#fff", 600, "right"); });
+    [["SPEED", (ri(50, 90) / 10).toFixed(1)], ["RANDOM", pick(["NONE", "NONE", "RANDOM", "MIRROR"])], ["FADER", "NONE"]].forEach((r, i) => { const y = 866 + 47 * i; T(r[0], 1520, y, 16, "#cfd8e6", 500); T(r[1], 1910, y, 20, "#fff", 600, "right"); });
+    ["F7 리플레이 저장", "F9 선호곡 추가", "F5 재시작", "ESC  ENTER 나가기"].forEach((s, i) => { RR(895 + 160 * i, 1088, 150, 26, 3, "#4a5266", 1.2); T(s, 970 + 160 * i, 1107, 13, "#cfd8e6", 500, "center"); });
+    uid(); return c;
+  }
+
+  /* ── 화면 맞춤 (v0.3 그대로) ── */
+  function bands(src, W, Hh) {
+    const c = document.createElement("canvas"); c.width = W; c.height = Hh; const x = c.getContext("2d", { willReadFrequently: true }); x.drawImage(src, 0, 0);
+    const TH = 6, rowDark = y => { const d = x.getImageData(0, y, W, 1).data; for (let i = 0; i < d.length; i += 4) if (d[i] > TH || d[i + 1] > TH || d[i + 2] > TH) return false; return true; };
+    const colDark = xx => { const d = x.getImageData(xx, 0, 1, Hh).data; for (let i = 0; i < d.length; i += 4) if (d[i] > TH || d[i + 1] > TH || d[i + 2] > TH) return false; return true; };
+    let t = 0, b = 0, l = 0, r = 0;
+    while (t < Hh * 0.25 && rowDark(t)) t++;
+    while (b < Hh * 0.25 && rowDark(Hh - 1 - b)) b++;
+    while (l < W * 0.25 && colDark(l)) l++;
+    while (r < W * 0.25 && colDark(W - 1 - r)) r++;
+    if (t && b) t = b = Math.min(t, b); else t = b = 0;
+    if (l && r) l = r = Math.min(l, r); else l = r = 0;
+    if (t && Math.abs((Hh - 2 * t) - W * 9 / 16) < Hh * 0.04) t = b = Math.max(0, (Hh - W * 9 / 16) / 2);
+    if (l && Math.abs((W - 2 * l) - Hh * 16 / 9) < W * 0.04) l = r = Math.max(0, (W - Hh * 16 / 9) / 2);
+    return [l, t, r, b].map(v => Math.round(v));
+  }
+  const ANAME = { bottom: "위가 잘림", top: "아래가 잘림", center: "가운데 맞춤" };
+  function fit() {
+    const W = cv.width, Hh = cv.height;
+    if (st.sample || !st.img) { st.frame = [0, 0, W, Hh]; st.fitNote = W + "×" + Hh + " · 16:9 그대로 (예시 그림)"; st.fitAuto = "16:9 그대로 ✓"; return; }
+    const [l, t, r, b] = bands(st.img, W, Hh), cx = l, cy = t, cw = W - l - r, ch = Hh - t - b, fh = cw * 9 / 16;
+    let auto, why;
+    if (Math.abs(ch - fh) <= Math.max(3, fh * 0.006)) { auto = "center"; why = "16:9 그대로"; }
+    else if (ch < fh) { auto = "bottom"; why = "창 모드 — 위 " + Math.round(fh - ch) + "px 잘림"; }
+    else { auto = "center"; why = "세로가 긴 화면"; }
+    const a = st.anchor === "auto" ? auto : st.anchor;
+    const fy = a === "bottom" ? cy + ch - fh : a === "top" ? cy : cy + (ch - fh) / 2;
+    st.frame = [cx, fy + st.nudge * (cw / 2000), cw, fh];
+    const band = (l || t || r || b) ? " · 검은 띠 " + [t, b, l, r].join("/") + "px" : "";
+    st.fitNote = W + "×" + Hh + " · " + ANAME[a] + (st.anchor === "auto" ? " (자동: " + why + ")" : "") + band + (st.nudge ? " · 옮김 " + st.nudge : "");
+    st.fitAuto = (st.anchor === "auto" ? why : ANAME[a] + " (직접)") + " ✓";
+  }
+  function toImg(r) { const [fx, fy, fw, fh] = st.frame || [0, 0, cv.width, cv.height], W = cv.width, Hh = cv.height;
+    return [(fx + r[0] * fw) / W, (fy + r[1] * fh) / Hh, (fx + r[2] * fw) / W, (fy + r[3] * fh) / Hh]; }
+  function rectPx(r) { const w = cv.width, h = cv.height;
+    const x0 = Math.max(0, Math.floor(r[0] * w)), y0 = Math.max(0, Math.floor(r[1] * h)), x1 = Math.min(w, Math.ceil(r[2] * w)), y1 = Math.min(h, Math.ceil(r[3] * h)); /* 바깥쪽으로 반올림 — 가장자리 한 줄이 새지 않게 */
+    return [x0, y0, Math.max(0, x1 - x0), Math.max(0, y1 - y0)]; }
+  function mask(ctx, src, x, y, w, h) {
+    if (w < 2 || h < 2) return;
+    if (st.style === "fill") { ctx.fillStyle = "#11151c"; ctx.fillRect(x, y, w, h); return; }
+    const b = Math.max(10, Math.round(cv.width * 0.009)), tw = Math.max(1, Math.ceil(w / b)), th = Math.max(1, Math.ceil(h / b));
+    const t = document.createElement("canvas"); t.width = tw; t.height = th; const tg = t.getContext("2d");
+    tg.imageSmoothingEnabled = true; tg.drawImage(src, x, y, w, h, 0, 0, tw, th);
+    ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(t, 0, 0, tw, th, x, y, w, h); ctx.restore();
+  }
+  function onRects() { return st.boxes.filter(b => b.on).map(b => toImg(b.r)).concat(st.custom); }
+  function render(ctx, preview) {
+    const src = st.img, W = cv.width, Hh = cv.height;
+    ctx.drawImage(src, 0, 0, W, Hh);
+    onRects().forEach(r => { const [x, y, w, h] = rectPx(r); mask(ctx, src, x, y, w, h); });
+    if (!preview) return;
+    /* 전/후 밀기: 손잡이 왼쪽 = 가린 뒤 · 오른쪽 = 원본 (가릴 칸이 대부분 왼쪽에 있어서 처음부터 가린 모습이 보이게) */
+    if (H.dataset.prev === "slide") { const sx = Math.round(st.split * W); ctx.save(); ctx.beginPath(); ctx.rect(sx, 0, W - sx, Hh); ctx.clip(); ctx.drawImage(src, 0, 0, W, Hh); ctx.restore(); }
+    /* 직접 가린 칸(드래그)은 손잡이 어느 쪽이든 늘 가린 모습 — 윈도 캡처 도구처럼 그은 자리가 바로 칠해진다 */
+    st.custom.forEach(r => { const [x, y, w, h] = rectPx(r); mask(ctx, src, x, y, w, h); });
+    if (drag && drag.mode === "draw") { const [x, y, w, h] = rectPx(norm(drag.r)); mask(ctx, src, x, y, w, h); }
+    const cs = getComputedStyle(H), cOn = cs.getPropertyValue("--on").trim() || "#59d6f0", cOff = cs.getPropertyValue("--off").trim() || "#3a4a68", cC = cs.getPropertyValue("--warn").trim() || "#ffd166";
+    const lw = Math.max(2, W / 640);
+    /* 켜진 칸 테두리는 원본 쪽(손잡이 오른쪽)에만 — 가린 뒤 쪽은 실제 저장될 모습 그대로 */
+    const sx2 = H.dataset.prev === "slide" ? Math.round(st.split * W) : W;
+    st.boxes.forEach(b => { const [x, y, w, h] = rectPx(toImg(b.r)); if (w < 2 || h < 2) return; ctx.save();
+      if (b.on) { ctx.beginPath(); ctx.rect(sx2, 0, W - sx2, Hh); ctx.clip(); }
+      if (b.on) { ctx.globalAlpha = .28; ctx.fillStyle = cOn; ctx.fillRect(x, y, w, h); }
+      ctx.lineWidth = b.on ? lw : lw * .6; ctx.globalAlpha = b.on ? 1 : .8; ctx.strokeStyle = b.on ? cOn : cOff; ctx.strokeRect(x + lw / 2, y + lw / 2, w - lw, h - lw); ctx.restore(); });
+    ctx.globalAlpha = 1; ctx.lineWidth = lw; st.custom.forEach(r => { const [x, y, w, h] = rectPx(r); ctx.strokeStyle = cC; ctx.strokeRect(x + 1, y + 1, w - 2, h - 2); });
+    if (drag && drag.mode === "draw") { const [x, y, w, h] = rectPx(norm(drag.r)); ctx.strokeStyle = cC; ctx.strokeRect(x + 1, y + 1, w - 2, h - 2); }
+  }
+  function draw() { render(g, true); placeSplit(); }
+  function placeSplit() { $("split").style.left = (st.split * 100) + "%"; $("labL").style.left = $("labR").style.left = (st.split * 100) + "%"; $("labL").style.visibility = st.split < .12 ? "hidden" : ""; $("labR").style.visibility = st.split > .88 ? "hidden" : ""; $("knob").setAttribute("aria-valuenow", Math.round(st.split * 100)); }
+
+  function load(img) {
+    st.img = img; st.sample = false; $("sampleTag").hidden = true;
+    cv.width = img.naturalWidth || img.width; cv.height = img.naturalHeight || img.height;
+    toast("불러옴 · " + cv.width + "×" + cv.height + " — 칸 자리를 눈으로 한 번 확인");
+    st.custom = []; st.nudge = 0; fit(); syncBtns(); draw();
+  }
+  function loadFile(f) { if (!f || !/^image\//.test(f.type)) { toast("그림 파일만 넣을 수 있습니다"); return; }
+    const u = URL.createObjectURL(f), im = new Image(); im.onload = () => { load(im); URL.revokeObjectURL(u); }; im.onerror = () => toast("그림을 열 수 없습니다"); im.src = u; }
+
+  /* ── 미리보기 조작: 손잡이 끌기 / 칸 누르기 / 끌어서 새 칸 ── */
+  let drag = null;
+  function pos(e) { const b = cv.getBoundingClientRect(); return [(e.clientX - b.left) / b.width, (e.clientY - b.top) / b.height]; }
+  function norm(d) { return [Math.min(d[0], d[2]), Math.min(d[1], d[3]), Math.max(d[0], d[2]), Math.max(d[1], d[3])]; }
+  const knob = $("knob");
+  knob.addEventListener("pointerdown", e => { e.stopPropagation(); drag = { mode: "split" }; knob.setPointerCapture(e.pointerId); });
+  knob.addEventListener("pointermove", e => { if (!drag || drag.mode !== "split") return; st.split = Math.min(1, Math.max(0, pos(e)[0])); draw(); });
+  knob.addEventListener("pointerup", () => { drag = null; });
+  /* 키보드 ← → 는 어디에 초점이 있어도 손잡이를 민다(입력 칸 빼고) */
+  window.addEventListener("keydown", e => {
+    if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+    const d = e.key === "ArrowLeft" ? -.05 : e.key === "ArrowRight" ? .05 : e.key === "Home" ? -1 : e.key === "End" ? 1 : 0;
+    if (d) { e.preventDefault(); st.split = Math.min(1, Math.max(0, st.split + d)); draw(); }
+  });
+  /* «직접 가리기»를 켰을 때만 드래그가 칸을 만든다 — 꺼져 있으면 누르기는 칸 켜고 끄기만 */
+  function setTool(on) { st.tool = on; $("tool").classList.toggle("on", on); $("tool").setAttribute("aria-pressed", String(on)); $("stage").classList.toggle("drawing", on); $("toolHint").hidden = !on; }
+  $("tool").onclick = () => setTool(!st.tool);
+  window.addEventListener("keydown", e => { if (e.key === "Escape" && st.tool) setTool(false); });
+  cv.addEventListener("pointerdown", e => { const p = pos(e); drag = { mode: st.tool ? "draw" : "click", r: [p[0], p[1], p[0], p[1]] }; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener("pointermove", e => { if (!drag || drag.mode !== "draw") return; const p = pos(e); drag.r[2] = p[0]; drag.r[3] = p[1]; draw(); });
+  cv.addEventListener("pointerup", () => {
+    if (!drag || drag.mode === "split") return; const mode = drag.mode, r = norm(drag.r); drag = null;
+    if (mode === "draw" && (r[2] - r[0]) * cv.width > 8 && (r[3] - r[1]) * cv.height > 8) { st.custom.push(r); syncBtns(); draw(); return; }
+    const [px, py] = [r[0], r[1]], inR = q => px >= q[0] && px <= q[2] && py >= q[1] && py <= q[3];
+    const ci = st.custom.findIndex(inR); if (ci >= 0) { st.custom.splice(ci, 1); syncBtns(); draw(); return; }
+    const bi = st.boxes.findIndex(b => inR(toImg(b.r))); if (bi >= 0) { st.boxes[bi].on = !st.boxes[bi].on; syncBtns(); draw(); } else draw();
+  });
+  /* Space 누르는 동안 원본 (Shottr 꼴) */
+  let held = null;
+  window.addEventListener("keydown", e => { if (e.code === "Space" && H.dataset.prev === "slide" && held === null && !/INPUT|BUTTON/.test(document.activeElement.tagName)) { e.preventDefault(); held = st.split; st.split = 0; draw(); } });
+  window.addEventListener("keyup", e => { if (e.code === "Space" && held !== null) { st.split = held; held = null; draw(); } });
+
+  function finalBlob(cb) { const c = document.createElement("canvas"); c.width = cv.width; c.height = cv.height; render(c.getContext("2d"), false); c.toBlob(cb, "image/png"); }
+  $("save").onclick = () => finalBlob(b => {
+    const u = URL.createObjectURL(b), d = new Date(), z = n => String(n).padStart(2, "0"), fn = "가린그림_" + d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate()) + "_" + z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds()) + ".png";
+    const a = document.createElement("a"); a.href = u; a.download = fn; document.body.appendChild(a); a.click(); a.remove();
+    toast("저장 완료 — " + fn);
+  });
+  $("copy").onclick = () => finalBlob(async b => {
+    try { await navigator.clipboard.write([new ClipboardItem({ "image/png": b })]); toast("복사 완료 — 붙여 넣기(Ctrl+V)로 바로 올릴 수 있습니다"); }
+    catch (e) { toast("이 창에서는 복사가 막혀 있습니다 — PNG 저장을 이용"); }
+  });
+  /* 마우스로 누른 «스크린샷 고르기»는 창이 닫힌 뒤 테두리가 남지 않게 */
+  const fl = document.querySelector('label[for="file"]');
+  fl.addEventListener("pointerdown", () => fl.classList.add("mouse"));
+  $("file").addEventListener("blur", () => fl.classList.remove("mouse"));
+  $("file").onchange = e => { loadFile(e.target.files[0]); e.target.value = ""; e.target.blur(); };
+  document.querySelectorAll("#kind button, .kinds button").forEach(b => b.onclick = () => { st.kind = b.dataset.k; resetBoxes(); if (st.sample) st.img = sampleImage(st.kind); fit(); syncBtns(); draw(); });
+  document.querySelectorAll("#style button").forEach(b => b.onclick = () => { st.style = b.dataset.s; syncBtns(); draw(); });
+  window.addEventListener("paste", e => { const it = [...((e.clipboardData || {}).items || [])].find(i => /^image\//.test(i.type)); if (it) loadFile(it.getAsFile()); });
+  ["dragenter", "dragover"].forEach(t => window.addEventListener(t, e => { e.preventDefault(); $("drop").hidden = false; }));
+  ["dragleave", "drop"].forEach(t => window.addEventListener(t, e => { e.preventDefault(); if (t === "drop" || e.target === $("drop")) $("drop").hidden = true; }));
+  window.addEventListener("drop", e => { const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) loadFile(f); });
+  let tt; function toast(s) { $("toast").textContent = s; clearTimeout(tt); tt = setTimeout(() => $("toast").textContent = "", 6000); }
+
+  ancRow($("ancB"), true); ancRow($("ancF"), false);
+  resetBoxes(); st.img = sampleImage(st.kind); fit(); syncBtns(); applyName(); applyPrev(); draw();
+  if (document.fonts) document.fonts.ready.then(draw);
+
+  /* ── 도움 미리보기 ── */
+  const FIG = (inner) => '<svg viewBox="0 0 220 124" aria-hidden="true">' + inner + '</svg>';
+  const SHOT = (y, hgt, lab) => `<rect x="30" y="${y}" width="160" height="${hgt}" fill="none" stroke="#59d6f0" stroke-width="2"/><text x="110" y="${y + hgt + 13}" fill="#59d6f0" font-size="10" text-anchor="middle">${lab}</text>`;
+  const GAME = (y) => `<rect x="30" y="${y}" width="160" height="90" fill="#1b2a44"/><rect x="30" y="${y}" width="52" height="10" fill="#f4e9ef"/><rect x="40" y="${y + 52}" width="40" height="22" fill="#2a3c5f"/><rect x="30" y="${y + 84}" width="14" height="6" fill="#8696b3"/>`;
+  const TIPS0 = {
+    "a:auto": [FIG(GAME(10) + SHOT(10, 90, "스샷")), "스샷 크기와 검은 띠를 재서 칸을 알아서 옮깁니다. 대부분은 이것으로 충분합니다."],
+    "a:bottom": [FIG(GAME(-8) + '<rect x="30" y="-8" width="160" height="20" fill="#060a13" opacity=".75"/>' + SHOT(12, 74, "스샷 — 위쪽이 잘려 나감")), "창 모드로 찍으면 게임 화면 위쪽이 잘린 채 저장됩니다. 칸을 아래에 맞춥니다."],
+    "a:center": [FIG('<rect x="30" y="4" width="160" height="104" fill="#000"/>' + GAME(11) + SHOT(4, 104, "스샷 — 위아래 검은 띠")), "16:10 · 21:9 화면처럼 검은 띠가 있으면 띠를 빼고 가운데에 맞춥니다."],
+    "a:top": [FIG(GAME(10) + '<rect x="30" y="86" width="160" height="14" fill="#060a13" opacity=".75"/>' + SHOT(10, 76, "스샷 — 아래쪽이 잘려 나감")), "아래쪽이 잘린 스샷이면 칸을 위에 맞춥니다."],
+    "s:fill": [FIG('<rect x="20" y="22" width="180" height="60" fill="#22304d"/><text x="40" y="58" fill="#e8eef8" font-size="18" font-weight="700">PLAYER_99</text><rect x="110" y="34" width="80" height="36" fill="#11151c"/><text x="110" y="104" fill="#8696b3" font-size="10" text-anchor="middle" x="110">칠한 자리에는 정보가 남지 않음</text>'), "한 색으로 덮습니다. 가장 안전한 방식입니다."],
+    "s:mosaic": [FIG('<rect x="20" y="22" width="180" height="60" fill="#22304d"/><text x="40" y="58" fill="#e8eef8" font-size="18" font-weight="700">PLAYER_99</text>' + Array.from({ length: 16 }, (_, i) => `<rect x="${110 + (i % 8) * 10}" y="${34 + Math.floor(i / 8) * 18}" width="10" height="18" fill="hsl(220,25%,${28 + ((i * 37) % 30)}%)"/>`).join("") + '<text x="110" y="104" fill="#8696b3" font-size="10" text-anchor="middle">짧은 글자는 되살릴 수도 있음</text>'), "큰 픽셀로 뭉갭니다. 사진에는 자연스럽지만, UID 처럼 짧은 글자는 칠하기를 권합니다."],
+    "tool": [FIG(GAME(10) + '<rect x="120" y="30" width="56" height="26" fill="#11151c" stroke="#ffd166" stroke-width="2"/><path d="M176 56 l10 16 l3 -7 l7 -2 z" fill="#fff" stroke="#000" stroke-width="1"/>'), "켜고 미리보기에서 끌면 그은 자리가 바로 칠해집니다. 목록에 없는 곳을 가릴 때 씁니다."],
+  };  /* 도움말 그림은 2.4초마다 되풀이해서 움직인다(코드로 그림 · 파일 0) */
+  const AN = (attr, vals, kt) => `<animate attributeName="${attr}" values="${vals}" keyTimes="${kt || "0;.35;.7;1"}" dur="2.4s" repeatCount="indefinite" calcMode="spline" keySplines="${(kt || "0;.35;.7;1").split(";").slice(1).map(() => ".4 0 .2 1").join(";")}"/>`;
+  const GAMEG = (y0, y1) => `<g><animateTransform attributeName="transform" type="translate" values="0 ${y0};0 ${y0};0 ${y1};0 ${y1}" keyTimes="0;.3;.6;1" dur="2.4s" repeatCount="indefinite"/>` + GAME(0) + `</g>`;
+  const MASKB = (y0, y1) => `<rect x="30" width="52" height="10" fill="#11151c" stroke="#59d6f0" stroke-width="1.5"><animate attributeName="y" values="${y0};${y0};${y1};${y1}" keyTimes="0;.45;.8;1" dur="2.4s" repeatCount="indefinite"/></rect>`;
+  const TIPS = {
+    "a:auto": [FIG(GAME(10) + SHOT(10, 90, "스샷") + `<rect x="30" width="52" height="10" fill="#11151c" stroke="#59d6f0" stroke-width="1.5"><animate attributeName="y" values="40;40;10;10" keyTimes="0;.3;.7;1" dur="2.4s" repeatCount="indefinite"/><animate attributeName="x" values="70;70;30;30" keyTimes="0;.3;.7;1" dur="2.4s" repeatCount="indefinite"/></rect><text x="96" y="20" fill="#59d6f0" font-size="12" font-weight="700" opacity="0">✓ 맞춤<animate attributeName="opacity" values="0;0;1;1" keyTimes="0;.7;.75;1" dur="2.4s" repeatCount="indefinite"/></text>`), TIPS0["a:auto"][1]],
+    "a:bottom": [FIG(`<defs><clipPath id="cpB"><rect x="30" y="10" width="160" height="90"/></clipPath></defs><rect x="30" y="-2" width="160" height="12" fill="#2a3346"/><text x="186" y="7" fill="#8696b3" font-size="8.5" text-anchor="end">빠진 줄</text><g clip-path="url(#cpB)">` + GAME(-2) + `</g>` + SHOT(10, 90, "창 모드 스샷 — 맨 위 몇 줄이 없음") + `<g><rect x="40" y="62" width="40" height="22" fill="none" stroke="#ff5470" stroke-width="2"/><text x="86" y="78" fill="#ff5470" font-size="11" font-weight="700">✕ 위 기준</text><animate attributeName="opacity" values="1;1;0;0" keyTimes="0;.35;.45;1" dur="3.6s" repeatCount="indefinite"/></g><g opacity="0"><rect x="40" y="50" width="40" height="22" fill="none" stroke="#59d6f0" stroke-width="2"/><text x="86" y="66" fill="#59d6f0" font-size="11" font-weight="700">✓ 아래 기준</text><animate attributeName="opacity" values="0;0;1;1" keyTimes="0;.45;.55;1" dur="3.6s" repeatCount="indefinite"/></g>`), "창 모드로 찍으면 맨 위 몇 줄이 빠진 채 저장되어 그림 전체가 위로 올라갑니다. 그래서 위가 아니라 아래를 기준으로 칸을 맞춥니다."],
+    "a:center": [FIG('<rect x="30" y="4" width="160" height="104" fill="#000"/>' + GAMEG(4, 11) + SHOT(4, 104, "스샷 — 위아래 검은 띠") + MASKB(4, 11)), TIPS0["a:center"][1]],
+    "a:top": [FIG(GAME(10) + '<rect x="30" y="86" width="160" height="14" fill="#060a13" opacity="0"><animate attributeName="opacity" values="0;0;.8;.8" keyTimes="0;.3;.6;1" dur="2.4s" repeatCount="indefinite"/></rect>' + SHOT(10, 76, "스샷 — 아래쪽이 잘려 나감") + `<rect x="30" y="10" width="52" height="10" fill="#11151c" stroke="#59d6f0" stroke-width="1.5"/>`), TIPS0["a:top"][1]],
+    "s:fill": [FIG('<rect x="20" y="22" width="180" height="60" fill="#22304d"/><text x="40" y="58" fill="#e8eef8" font-size="18" font-weight="700">PLAYER_99</text><rect x="36" y="34" height="36" fill="#11151c" width="0"><animate attributeName="width" values="0;0;120;120" keyTimes="0;.2;.55;1" dur="2.4s" repeatCount="indefinite"/></rect><text x="110" y="104" fill="#8696b3" font-size="10" text-anchor="middle">칠한 자리에는 정보가 남지 않음</text>'), TIPS0["s:fill"][1]],
+    "s:mosaic": [FIG('<rect x="20" y="22" width="180" height="60" fill="#22304d"/><text x="40" y="58" fill="#e8eef8" font-size="18" font-weight="700">PLAYER_99</text>' + Array.from({ length: 24 }, (_, i) => { const c = i % 12, r = Math.floor(i / 12), t0 = (.15 + c * .03).toFixed(2), t1 = (+t0 + .08).toFixed(2); return `<rect x="${36 + c * 10}" y="${34 + r * 18}" width="10" height="18" fill="hsl(220,25%,${28 + ((i * 37) % 30)}%)" opacity="0"><animate attributeName="opacity" values="0;0;1;1" keyTimes="0;${t0};${t1};1" dur="2.4s" repeatCount="indefinite"/></rect>`; }).join("") + '<text x="110" y="104" fill="#8696b3" font-size="10" text-anchor="middle">짧은 글자는 되살릴 수도 있음</text>'), TIPS0["s:mosaic"][1]],
+    "tool": [FIG(GAME(10) + `<rect x="120" y="30" height="0" width="0" fill="#11151c" stroke="#ffd166" stroke-width="2"><animate attributeName="width" values="0;0;56;56" keyTimes="0;.15;.6;1" dur="2.4s" repeatCount="indefinite"/><animate attributeName="height" values="0;0;26;26" keyTimes="0;.15;.6;1" dur="2.4s" repeatCount="indefinite"/></rect><path d="M0 0 l10 16 l3 -7 l7 -2 z" fill="#fff" stroke="#000" stroke-width="1"><animateTransform attributeName="transform" type="translate" values="120 30;120 30;176 56;176 56" keyTimes="0;.15;.6;1" dur="2.4s" repeatCount="indefinite"/></path>`), TIPS0["tool"][1]],
+  };
+  function showTip(key, el) {
+    const t = TIPS[key]; if (!t) return; $("tipFig").innerHTML = t[0]; $("tipTxt").textContent = t[1];
+    const tip = $("tip"), pr = document.querySelector(".panel").getBoundingClientRect(), r = el.getBoundingClientRect();
+    tip.hidden = false; tip.style.top = Math.max(0, r.top - pr.top + r.height / 2 - tip.offsetHeight / 2) + "px";
+    if (el.id === "tool") { tip.style.right = "auto"; tip.style.left = (r.left - pr.left) + "px"; tip.style.top = (r.top - pr.top - tip.offsetHeight - 10) + "px"; } else { tip.style.left = ""; tip.style.right = ""; }
+  }
+  const hideTip = () => { $("tip").hidden = true; };
+  function bindTips() {
+    document.querySelectorAll("#ancB [data-a]").forEach(b => { const k = "a:" + b.dataset.a; b.onmouseenter = b.onfocus = () => showTip(k, b); b.onmouseleave = b.onblur = hideTip; });
+    document.querySelectorAll("#style [data-s]").forEach(b => { const k = "s:" + b.dataset.s; b.onmouseenter = b.onfocus = () => showTip(k, b); b.onmouseleave = b.onblur = hideTip; });
+    const t = $("tool"); t.onmouseenter = t.onfocus = () => showTip("tool", t); t.onmouseleave = t.onblur = hideTip;
+  }
+  bindTips();
+  document.querySelectorAll(".kinds button").forEach(b => { const c = b.querySelector("canvas"); c.getContext("2d").drawImage(sampleImage(b.dataset.k), 0, 0, 320, 180); });
+  window.__gk = { st, load, fit, draw };
+})();
+</script>

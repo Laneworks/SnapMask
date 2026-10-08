@@ -1,0 +1,6 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# ZIP 내려받기에서 빼는 것 (페이지 쓰는 데 필요 없음)
+assets/ export-ignore
+.gitattributes export-ignore

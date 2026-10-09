@@ -789,22 +789,34 @@ function AV(x, X, Y, W, hue, style) {
   function thumbOf(bm) { return new Promise(r => { const c = document.createElement("canvas"); c.width = 272; c.height = 153; const [fx, fy, fw, fh] = frameOf(bm);
     c.getContext("2d").drawImage(bm, fx, fy, fw, fh, 0, 0, 272, 153); c.toBlob(b => r(URL.createObjectURL(b)), "image/jpeg", .72); }); }
   function saveCur() { const it = B.items[B.cur]; if (it) { it.anchor = st.anchor; it.nudge = st.nudge; } }
+  /* 100차: 같은 그림을 두 번 넣지 않는다 — 파일 내용의 SHA-256 으로 견준다(이름이 달라도 같은 그림이면 같다).
+     crypto.subtle 이 없는 창이면 «이름·크기·수정 시각»으로 대신한다 */
+  async function fileKey(f) {
+    try { if (crypto.subtle) { const h = new Uint8Array(await crypto.subtle.digest("SHA-256", await f.arrayBuffer())); return Array.from(h, b => b.toString(16).padStart(2, "0")).join(""); } } catch (e) {}
+    return f.name + "|" + f.size + "|" + f.lastModified;
+  }
   async function takeFiles(fs) {
     fs = fs.filter(f => f && /^image\//.test(f.type));
     if (!fs.length) { toast("그림 파일만 넣을 수 있습니다"); return; }
     if (!B.items.length && fs.length === 1) { loadFile(fs[0]); return; }
     if (!B.items.length && !st.sample && st.file) fs.unshift(st.file);   /* 한 장 보던 것도 묶음에 넣는다 */
-    const first = B.items.length;
+    const first = B.items.length, seen = new Set(B.items.map(i => i.key)); let dup = 0;
     for (let k = 0; k < fs.length; k++) {
       toast("고르는 중 " + (k + 1) + " / " + fs.length);
+      const key = await fileKey(fs[k]);
+      if (seen.has(key)) { dup++; continue; }
+      seen.add(key);
       try { const bm = await createImageBitmap(fs[k]); const j = judge(bm), th = await thumbOf(bm); bm.close();
-        B.items.push({ id: ++B.seq, file: fs[k], d: j.d, kind: j.kind, thumb: th, custom: [], anchor: "auto", nudge: 0 });
+        B.items.push({ id: ++B.seq, key, file: fs[k], d: j.d, kind: j.kind, thumb: th, custom: [], anchor: "auto", nudge: 0 });
       } catch (e) { toast("열 수 없는 그림 — " + fs[k].name); }
       renderStrip();
     }
+    if (!B.items.length) { toast("같은 그림이라 건너뜀 " + dup + "장"); return; }
     const got = B.items.slice(first), n = got.length, r = got.filter(i => i.kind).length, cnt = kk => got.filter(i => i.kind === kk).length;
     if (n) { const pick = B.items.findIndex((it, i) => i >= first && it.kind); await openItem(pick >= 0 ? pick : first); }
-    toast(n + "장 넣음 · " + ["result", "board", "play", "multi"].filter(kk => cnt(kk)).map(kk => KN[kk] + " " + cnt(kk) + "장").concat(n - r ? ["확인 필요 " + (n - r) + "장"] : []).join(" · "));
+    const dupMsg = dup ? "같은 그림이라 건너뜀 " + dup + "장" : "";
+    if (!n) { toast(dupMsg || "넣은 그림이 없습니다"); return; }
+    toast(n + "장 넣음 · " + ["result", "board", "play", "multi"].filter(kk => cnt(kk)).map(kk => KN[kk] + " " + cnt(kk) + "장").concat(n - r ? ["확인 필요 " + (n - r) + "장"] : [], dupMsg ? [dupMsg] : []).join(" · "));
   }
   async function openItem(i) {
     const it = B.items[i]; if (!it) return; saveCur(); const tok = ++B.tok;
